@@ -2,6 +2,7 @@ from __future__ import unicode_literals
 
 import posixpath, datetime, mimetypes, gzip, os
 from io import TextIOBase
+from re import sub
 from email.utils import parsedate_tz
 from contextlib import closing, contextmanager
 from tempfile import SpooledTemporaryFile
@@ -194,13 +195,17 @@ class S3Storage(Storage):
         Authenticated storage will return a signed URL. Non-authenticated
         storage will return an unsigned URL, which aids in browser caching.
         """
-        return self.s3_connection.generate_url(
+        url = self.s3_connection.generate_url(
             method = "GET",
             bucket = self.aws_s3_bucket_name,
             key = self._get_key_name(name),
             expires_in = self.aws_s3_max_age_seconds,
             query_auth = self.aws_s3_bucket_auth,
         )
+        # remove x-amz-security-token by find/replace
+        url = sub(r'x-amz-security-token=[^&]+', '', url)
+        # remove ? and & at end of url
+        return url[:-1] if url[-1] in '?&' else url
 
     def _get_key(self, name, validate=False):
         return self.bucket.get_key(self._get_key_name(name), validate=validate)
